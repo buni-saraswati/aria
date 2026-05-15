@@ -1,0 +1,9 @@
+fastapi==0.115.12
+uvicorn==0.34.2
+pydantic==2.11.4
+azure-cosmos==4.9.0
+azure-eventhub==5.11.7
+azure-storage-blob==12.24.0
+azure-monitor-opentelemetry==1.6.4
+openai==1.82.0
+python-dotenv==1.0.1
