@@ -7,7 +7,7 @@ from app.models.decision import Decision, DecisionStatus
 
 logger = logging.getLogger(__name__)
 
-
+COSMOS_INTERNAL_FIELDS = {"_rid", "_self", "_etag", "_attachments", "_ts"}
 class CosmosService:
     def __init__(self):
         self.client = CosmosClient(Config.COSMOS_ENDPOINT, Config.COSMOS_KEY)
@@ -22,7 +22,7 @@ class CosmosService:
 
     def get_decision(self, decision_id: str) -> Decision:
         item = self.decisions.read_item(decision_id, partition_key=decision_id)
-        return Decision.from_cosmos_item(item)
+        return Decision.from_cosmos_item(self._clean(item))
 
     def update_decision(self, decision: Decision) -> Decision:
         decision.updated_at = datetime.now(timezone.utc).isoformat()
@@ -47,7 +47,8 @@ class CosmosService:
             parameters=params if params else None,
             enable_cross_partition_query=True
         ))
-        return [Decision.from_cosmos_item(i) for i in items]
+        # return [Decision.from_cosmos_item(i) for i in items]
+        return [Decision.from_cosmos_item(self._clean(i)) for i in items]
 
     def append_audit_event(
         self,
@@ -76,8 +77,26 @@ class CosmosService:
             WHERE c.decision_id = @decision_id
             ORDER BY c.timestamp ASC
         """
-        return list(self.audit_log.query_items(
+        items = list(self.audit_log.query_items(
             query=query,
             parameters=[{"name": "@decision_id", "value": decision_id}],
             enable_cross_partition_query=True
         ))
+        return [self._clean(i) for i in items]
+    
+    def _clean(self, item: dict) -> dict:
+        """Strip Cosmos internal metadata from any item."""
+        return {k: v for k, v in item.items() if k not in COSMOS_INTERNAL_FIELDS}
+    
+    def get_stats(self) -> dict:
+        """Aggregate decision counts by status. Used by dashboard."""
+        query = "SELECT c.status, COUNT(1) as count FROM c GROUP BY c.status"
+        items = list(self.decisions.query_items(
+            query=query,
+            enable_cross_partition_query=True
+        ))
+        stats = {item["status"]: item["count"] for item in items}
+
+        # ensure all statuses present even if zero
+        all_statuses = [s.value for s in DecisionStatus]
+        return {s: stats.get(s, 0) for s in all_statuses}

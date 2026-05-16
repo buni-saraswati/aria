@@ -25,3 +25,6 @@ class Config:
     # App
     APP_TITLE = "ARIA - AI Reliability & Integrity Architecture"
     APP_VERSION = "0.1.0"
+
+    #App Telemetry
+    APPINSIGHTS_CONNECTION_STRING = os.getenv("APPINSIGHTS_CONNECTION_STRING")

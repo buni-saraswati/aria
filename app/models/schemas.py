@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
 
 
 class DataSourceInput(BaseModel):
@@ -28,3 +27,21 @@ class SubmitDecisionResponse(BaseModel):
 class AuditTrailResponse(BaseModel):
     decision_id: str
     events: list[dict]
+
+
+class ApproveDecisionRequest(BaseModel):
+    approver_id: str
+    reason: Optional[str] = None
+
+
+class RejectDecisionRequest(BaseModel):
+    approver_id: str
+    reason: str         
+
+class ExecuteDecisionRequest(BaseModel):
+    requested_by: str                  
+
+
+class RollbackDecisionRequest(BaseModel):
+    requested_by: str
+    reason: str        
