@@ -9,40 +9,6 @@ ARIA is the missing accountability layer between AI agents
 and enterprise systems. Every action an AI wants to take
 gets classified, routed, approved, executed, and logged.
 
-## Architecture
-Any AI Agent
-     ↓
-POST /decisions/submit
-     ↓
-┌─────────────────────────────────────────────┐
-│              ARIA Pipeline                  │
-│                                             │
-│  1. Data Freshness Validator                │
-│     └── stale data? → reject immediately   │
-│                                             │
-│  2. AI Classification Engine               │
-│     └── GPT-4.1 mini reads the action      │
-│         reversibility + impact + reason     │
-│                                             │
-│  3. Business Rules Engine                  │
-│     └── org rules override AI if needed    │
-│         fully transparent in audit trail   │
-│                                             │
-│  4. Router                                 │
-│     ├── auto_approve  → execute directly   │
-│     ├── needs_approval → human in loop     │
-│     └── hard_block   → rejected, no way in │
-└─────────────────────────────────────────────┘
-     ↓
-Execution Engine
-  └── snapshot before → execute → rollback capable
-     ↓
-Immutable Audit Log
-  └── every step, every actor, every timestamp
-     ↓
-Azure Monitor + App Insights
-  └── traces, spans, pipeline metrics
-
 ## Decision Lifecycle
 submitted → validating → classified → pending_approval
          → approved → executing → completed → rolled_back
