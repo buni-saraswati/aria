@@ -89,6 +89,7 @@ class Decision:
     approvals: list[ApprovalRecord] = field(default_factory=list)
     required_approvals: int = 1
     expires_at: Optional[str] = None
+    counterfactual: Optional[dict] = None
     snapshot_id: Optional[str] = None
     execution_result: Optional[dict] = None
     rollback_available: bool = False
@@ -107,6 +108,7 @@ class Decision:
             "description": self.description,
             "payload": self.payload,
             "context": self.context,
+            "counterfactual": self.counterfactual,
             "data_sources": [
                 {
                     "name": ds.name,
@@ -167,6 +169,7 @@ class Decision:
         d.submitted_at = item.get("submitted_at", "")
         d.updated_at = item.get("updated_at")
         d.completed_at = item.get("completed_at")
+        d.counterfactual = item.get("counterfactual")
         d.data_sources = [
             DataSource(
                 name=ds["name"],

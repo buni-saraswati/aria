@@ -1,14 +1,23 @@
 import logging
+import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from apscheduler.schedulers.background import BackgroundScheduler
 from config import Config
-from app.routers import decisions
+from app.routers import decisions, rules
 from app.telemetry import setup_telemetry
+
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s"
+)
 
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 logging.getLogger("azure.cosmos").setLevel(logging.WARNING)
+logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
+logging.getLogger("opentelemetry").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +32,30 @@ def run_ttl_check():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # startup
+    # 1. TTL scheduler
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_ttl_check, "interval", minutes=1, id="ttl_monitor")
     scheduler.start()
     logger.info("TTL monitor started")
+
+    # 2. Event Hub consumer — only if configured
+    if Config.EVENTHUB_CONNECTION_STRING:
+        from app.services.eventhub_service import get_consumer
+        consumer = get_consumer()
+        consumer.start()
+        logger.info("Event Hub consumer started")
+    else:
+        logger.warning("EVENTHUB_CONNECTION_STRING not set — using BackgroundTasks fallback")
+        consumer = None
+
     yield
+
+    # shutdown
     scheduler.shutdown()
-    logger.info("TTL monitor stopped")
+    if consumer:
+        consumer.stop()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
@@ -39,12 +65,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# setup telemetry before including routers
 setup_telemetry(app)
-
 app.include_router(decisions.router)
+app.include_router(rules.router)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": Config.APP_TITLE}
+    return {"status": "ok", "service": Config.APP_TITLE, "version": Config.APP_VERSION}

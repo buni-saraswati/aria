@@ -45,3 +45,33 @@ class ExecuteDecisionRequest(BaseModel):
 class RollbackDecisionRequest(BaseModel):
     requested_by: str
     reason: str        
+
+class RuleConditionInput(BaseModel):
+    action_types: Optional[list[str]] = None
+    payload_field: Optional[str] = None
+    operator: Optional[str] = None         # gt, lt, gte, lte, eq, contains
+    value: Optional[float | str] = None
+    description_contains: Optional[str] = None
+    context_contains: Optional[str] = None
+    payload_equals: Optional[dict] = None
+
+
+class RuleOverrideInput(BaseModel):
+    impact: Optional[str] = None           # low, medium, high, critical
+    reversibility: Optional[str] = None    # reversible, irreversible, unknown
+    force_route: Optional[str] = None      # hard_block only
+    add_approvers: list[str] = Field(default_factory=list)
+    reason: str = ""
+class CreateRuleRequest(BaseModel):
+    name: str
+    description: str
+    condition: RuleConditionInput
+    override: RuleOverrideInput
+    created_by: str
+
+
+class UpdateRuleRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    condition: Optional[RuleConditionInput] = None
+    override: Optional[RuleOverrideInput] = None

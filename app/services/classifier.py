@@ -1,6 +1,13 @@
 import json
 import logging
 from openai import AzureOpenAI
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
 from config import Config
 from app.models.decision import (
     Decision, ClassificationResult,
@@ -9,8 +16,6 @@ from app.models.decision import (
 
 logger = logging.getLogger(__name__)
 
-# Routing logic is deterministic — no AI needed here
-# AI gives us reversibility + impact, we derive the route
 ROUTE_MATRIX = {
     (Reversibility.REVERSIBLE,   ImpactLevel.LOW):      RouteDecision.AUTO_APPROVE,
     (Reversibility.REVERSIBLE,   ImpactLevel.MEDIUM):   RouteDecision.AUTO_APPROVE,
@@ -44,13 +49,11 @@ Guidelines:
 - reversible: action can be undone (send draft, flag record, generate report)
 - irreversible: action cannot be undone (wire transfer, delete data, send mass email)
 - unknown: you cannot determine reversibility from the context given
-
 - low:      no financial/data/compliance risk
 - medium:   moderate risk, affects internal records
 - high:     significant risk, affects external parties or large data
 - critical: cannot be undone AND has major financial, legal, or data consequences
-
-- suggested_approvers: role titles, not names (e.g. "Finance Manager", "CFO")
+- suggested_approvers: role titles not names (e.g. "Finance Manager", "CFO")
 - confidence: how confident you are in this classification
 
 Return ONLY the JSON object. No explanation, no markdown, no extra text.
@@ -67,9 +70,27 @@ class Classifier:
 
     def classify(self, decision: Decision) -> ClassificationResult:
         """
-        Call GPT to classify a decision.
-        Returns a ClassificationResult with reversibility, impact, route.
+        Classify a decision with automatic retry on transient failures.
+        Falls back to maximum caution if all retries exhausted.
         """
+        try:
+            return self._classify_with_retry(decision)
+        except Exception as e:
+            logger.error(
+                f"All retries exhausted for decision {decision.decision_id}: {e}. "
+                f"Applying safe fallback classification."
+            )
+            return self._fallback_classification()
+
+    @retry(
+        retry=retry_if_exception_type(Exception),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True
+    )
+    def _classify_with_retry(self, decision: Decision) -> ClassificationResult:
+        """Inner method — retried up to 3 times with exponential backoff."""
         user_message = f"""
 Action Type:  {decision.action_type}
 Description:  {decision.description}
@@ -85,7 +106,7 @@ Payload:      {json.dumps(decision.payload, indent=2)}
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message}
             ],
-            temperature=0.1,      # low temp = consistent, deterministic output
+            temperature=0.1,
             max_tokens=300
         )
 
@@ -93,32 +114,47 @@ Payload:      {json.dumps(decision.payload, indent=2)}
 
         try:
             parsed = json.loads(raw)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.error(f"Classifier returned invalid JSON: {raw}")
-            # safe fallback — treat as unknown/critical, needs approval
-            parsed = {
-                "reversibility": "unknown",
-                "impact": "critical",
-                "risk_reason": "Classification failed — defaulting to maximum caution.",
-                "suggested_approvers": ["System Administrator"],
-                "confidence": 0.0
-            }
+            # raise so tenacity retries
+            raise ValueError(f"Invalid JSON from classifier: {e}") from e
 
-        reversibility = Reversibility(parsed.get("reversibility", "unknown"))
-        impact = ImpactLevel(parsed.get("impact", "critical"))
+        # validate required fields present
+        required = {"reversibility", "impact", "risk_reason", "confidence"}
+        missing = required - set(parsed.keys())
+        if missing:
+            raise ValueError(f"Classifier response missing fields: {missing}")
+
+        reversibility = Reversibility(parsed["reversibility"])
+        impact = ImpactLevel(parsed["impact"])
         route = ROUTE_MATRIX.get((reversibility, impact), RouteDecision.NEEDS_APPROVAL)
 
         result = ClassificationResult(
             reversibility=reversibility,
             impact=impact,
-            risk_reason=parsed.get("risk_reason", ""),
+            risk_reason=parsed["risk_reason"],
             suggested_approvers=parsed.get("suggested_approvers", []),
-            confidence=float(parsed.get("confidence", 0.0)),
+            confidence=float(parsed["confidence"]),
             route=route
         )
 
         logger.info(
             f"Classified {decision.decision_id}: "
-            f"{reversibility.value}/{impact.value} → {route.value}"
+            f"{reversibility.value}/{impact.value} → {route.value} "
+            f"(confidence: {result.confidence})"
         )
         return result
+
+    def _fallback_classification(self) -> ClassificationResult:
+        """
+        Safe fallback when all retries fail.
+        Always needs_approval — never auto-approve or hard-block on a failed classification.
+        """
+        return ClassificationResult(
+            reversibility=Reversibility.UNKNOWN,
+            impact=ImpactLevel.HIGH,
+            risk_reason="Classification service unavailable — defaulting to human review.",
+            suggested_approvers=["System Administrator"],
+            confidence=0.0,
+            route=RouteDecision.NEEDS_APPROVAL
+        )

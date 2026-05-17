@@ -18,7 +18,7 @@ class ExecutionService:
         Execute an approved decision.
         Flow: validate → snapshot → execute → save result
         """
-        decision = self.cosmos.get_decision(decision_id)
+        decision, _ = self.cosmos.get_decision(decision_id)
         self._validate_executable(decision)
 
         # mark as executing
@@ -99,7 +99,7 @@ class ExecutionService:
         """
         Rollback a completed decision by restoring its pre-action snapshot.
         """
-        decision = self.cosmos.get_decision(decision_id)
+        decision, _ = self.cosmos.get_decision(decision_id)
         self._validate_rollback(decision)
 
         self.cosmos.append_audit_event(

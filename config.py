@@ -24,7 +24,16 @@ class Config:
 
     # App
     APP_TITLE = "ARIA - AI Reliability & Integrity Architecture"
-    APP_VERSION = "0.1.0"
+    APP_VERSION = "0.2.0"
 
     #App Telemetry
     APPINSIGHTS_CONNECTION_STRING = os.getenv("APPINSIGHTS_CONNECTION_STRING")
+
+    API_KEY_AGENT = os.getenv("API_KEY_AGENT")
+    API_KEY_APPROVER = os.getenv("API_KEY_APPROVER")
+    API_KEY_ADMIN = os.getenv("API_KEY_ADMIN")
+
+    # Notifications
+    NOTIFICATION_WEBHOOK_URL = os.getenv("NOTIFICATION_WEBHOOK_URL", "")
+    NOTIFICATION_ENABLED = os.getenv("NOTIFICATION_ENABLED", "false").lower() == "true"
+    ARIA_BASE_URL = os.getenv("ARIA_BASE_URL", "http://localhost:8000")

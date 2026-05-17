@@ -1,5 +1,5 @@
 import logging
-from app.models.decision import Decision, DecisionStatus, RouteDecision
+from app.models.decision import Decision, DecisionStatus, RouteDecision, ClassificationResult
 from app.services.cosmos_service import CosmosService
 from app.services.freshness import FreshnessValidator
 from app.services.classifier import Classifier
@@ -9,6 +9,8 @@ from app.telemetry import tracer
 
 logger = logging.getLogger(__name__)
 
+CONFIDENCE_THRESHOLD = 0.6
+
 
 def run_classification_pipeline(decision_id: str):
     with tracer.start_as_current_span("pipeline.run") as pipeline_span:
@@ -16,11 +18,11 @@ def run_classification_pipeline(decision_id: str):
         cosmos = CosmosService()
 
         try:
-            decision = cosmos.get_decision(decision_id)
+            decision, _ = cosmos.get_decision(decision_id)
             pipeline_span.set_attribute("agent_id", decision.agent_id)
             pipeline_span.set_attribute("action_type", decision.action_type)
 
-            # Step 1: Freshness
+            # Step 1: Freshness Check
             with tracer.start_as_current_span("pipeline.freshness_check"):
                 decision.status = DecisionStatus.VALIDATING
                 cosmos.update_decision(decision)
@@ -82,7 +84,33 @@ def run_classification_pipeline(decision_id: str):
                     }
                 )
 
-            # Step 3: Rules Engine
+            # Step 2.5: Confidence threshold
+            if ai_result.confidence < CONFIDENCE_THRESHOLD:
+                logger.warning(
+                    f"Low confidence ({ai_result.confidence}) for {decision_id}. "
+                    f"Escalating to human review."
+                )
+                cosmos.append_audit_event(
+                    decision_id=decision_id,
+                    event_type="low_confidence_escalation",
+                    actor="aria-pipeline",
+                    details={
+                        "confidence": ai_result.confidence,
+                        "threshold": CONFIDENCE_THRESHOLD,
+                        "ai_suggested_route": ai_result.route.value,
+                        "escalated_to": "needs_approval"
+                    }
+                )
+                ai_result = ClassificationResult(
+                    reversibility=ai_result.reversibility,
+                    impact=ai_result.impact,
+                    risk_reason=ai_result.risk_reason + " [Low confidence — escalated to human review]",
+                    suggested_approvers=ai_result.suggested_approvers or ["System Administrator"],
+                    confidence=ai_result.confidence,
+                    route=RouteDecision.NEEDS_APPROVAL
+                )
+
+            # Step 3: Rules Engine 
             with tracer.start_as_current_span("pipeline.rules_engine") as rules_span:
                 rules_engine = RulesEngine()
                 rules_result = rules_engine.apply(decision, ai_result)
@@ -109,6 +137,35 @@ def run_classification_pipeline(decision_id: str):
                         details={"message": "No rules matched. AI classification unchanged."}
                     )
 
+            # Step 3.5: Counterfactual
+            if rules_result.rules_fired:
+                decision.counterfactual = {
+                    "without_rules_engine": {
+                        "reversibility": ai_result.reversibility.value,
+                        "impact": ai_result.impact.value,
+                        "route": ai_result.route.value,
+                        "risk_reason": ai_result.risk_reason
+                    },
+                    "with_rules_engine": {
+                        "reversibility": final.reversibility.value,
+                        "impact": final.impact.value,
+                        "route": final.route.value,
+                        "risk_reason": final.risk_reason
+                    },
+                    "rules_that_changed_outcome": rules_result.rules_fired,
+                    "overrides_applied": rules_result.overrides_applied,
+                    "summary": (
+                        f"Without rules: AI would have routed to '{ai_result.route.value}'. "
+                        f"Rules engine changed route to '{final.route.value}'."
+                    )
+                }
+                cosmos.append_audit_event(
+                    decision_id=decision_id,
+                    event_type="counterfactual_recorded",
+                    actor="aria-pipeline",
+                    details=decision.counterfactual
+                )
+
             # Step 4: Finalize
             decision.classification = final
             decision.route = final.route
@@ -123,6 +180,11 @@ def run_classification_pipeline(decision_id: str):
                 )
                 approval_service = ApprovalService()
                 decision = approval_service.set_expiry(decision)
+
+
+                from app.services.notification_service import NotificationService
+                decision.classification = final
+                NotificationService().notify_pending_approval(decision)
 
             elif final.route == RouteDecision.HARD_BLOCK:
                 decision.status = DecisionStatus.REJECTED
@@ -154,7 +216,7 @@ def run_classification_pipeline(decision_id: str):
             pipeline_span.record_exception(e)
             logger.error(f"Pipeline failed for {decision_id}: {e}")
             try:
-                decision = cosmos.get_decision(decision_id)
+                decision, _ = cosmos.get_decision(decision_id)
                 decision.status = DecisionStatus.FAILED
                 cosmos.update_decision(decision)
                 cosmos.append_audit_event(
