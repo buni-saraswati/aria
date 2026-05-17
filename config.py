@@ -34,6 +34,8 @@ class Config:
     API_KEY_ADMIN = os.getenv("API_KEY_ADMIN")
 
     # Notifications
-    NOTIFICATION_WEBHOOK_URL = os.getenv("NOTIFICATION_WEBHOOK_URL", "")
+    GMAIL_USER = os.getenv("GMAIL_USER", "")
+    GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+    NOTIFICATION_APPROVER_EMAILS = os.getenv("NOTIFICATION_APPROVER_EMAILS", "")
     NOTIFICATION_ENABLED = os.getenv("NOTIFICATION_ENABLED", "false").lower() == "true"
     ARIA_BASE_URL = os.getenv("ARIA_BASE_URL", "http://localhost:8000")
