@@ -3,8 +3,7 @@ name: Build and Push to ACR
 on:
   push:
     branches:
-      - main
-      - develop
+      - dev
     paths:
       - 'app/**'
       - 'config.py'
@@ -20,6 +19,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    environment: aria
     
     permissions:
       contents: read
@@ -51,7 +51,7 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Update Container App (optional)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/dev'
         run: |
           az containerapp update \
             --name ca-aria-dev \
