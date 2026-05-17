@@ -60,3 +60,22 @@ jobs:
         run: |
           echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+
+      - name: Cleanup - Remove local Docker images
+        if: always()
+        run: |
+          docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
+          docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} || true
+          echo "✅ Local Docker images cleaned up"
+
+      - name: Cleanup - Logout from ACR
+        if: always()
+        run: |
+          az acr logout --name acrdocintdev001 || true
+          echo "✅ Logged out from ACR"
+
+      - name: Cleanup - Azure logout
+        if: always()
+        run: |
+          az logout || true
+          echo "✅ Azure CLI logged out"
