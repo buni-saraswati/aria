@@ -2,6 +2,7 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from config import Config
 from app.routers import decisions, rules
@@ -32,30 +33,36 @@ def run_ttl_check():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup
-    # 1. TTL scheduler
+    print(">>> ARIA startup begin", flush=True)
+
+    # TTL scheduler
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_ttl_check, "interval", minutes=1, id="ttl_monitor")
     scheduler.start()
-    logger.info("TTL monitor started")
+    print(">>> TTL monitor started", flush=True)
 
-    # 2. Event Hub consumer — only if configured
+    # Event Hub consumer
     if Config.EVENTHUB_CONNECTION_STRING:
-        from app.services.eventhub_service import get_consumer
-        consumer = get_consumer()
-        consumer.start()
-        logger.info("Event Hub consumer started")
+        try:
+            from app.services.eventhub_service import get_consumer
+            consumer = get_consumer()
+            consumer.start()
+            print(">>> Event Hub consumer started", flush=True)
+        except Exception as e:
+            print(f">>> Event Hub consumer FAILED: {e}", flush=True)
+            consumer = None
     else:
-        logger.warning("EVENTHUB_CONNECTION_STRING not set — using BackgroundTasks fallback")
+        print(">>> EVENTHUB_CONNECTION_STRING not set — skipping consumer", flush=True)
         consumer = None
 
+    print(">>> ARIA startup complete", flush=True)
     yield
 
     # shutdown
     scheduler.shutdown()
     if consumer:
         consumer.stop()
-    logger.info("Shutdown complete")
+    print(">>> ARIA shutdown complete", flush=True)
 
 
 app = FastAPI(
@@ -63,6 +70,13 @@ app = FastAPI(
     version=Config.APP_VERSION,
     description="The missing accountability layer between AI agents and enterprise systems.",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],      
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 setup_telemetry(app)

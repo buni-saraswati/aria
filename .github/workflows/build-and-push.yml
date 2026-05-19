@@ -38,15 +38,20 @@ jobs:
         run: |
           az acr login --name acrdocintdev001
 
-      - name: Build Docker image
-        run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
-          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Push to ACR
-        run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Build and Push Docker image (with caching)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          registry: ${{ env.REGISTRY }}
 
       - name: Update Container App (optional)
         if: github.ref == 'refs/heads/dev'
@@ -61,12 +66,13 @@ jobs:
           echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
 
-      - name: Cleanup - Remove local Docker images
+      - name: Cleanup - Remove Docker images
         if: always()
         run: |
           docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
           docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} || true
-          echo "✅ Local Docker images cleaned up"
+          az acr repository delete -n acrdocintdev001 -t aria:buildcache --yes || true
+          echo "✅ Docker images cleaned up"
 
       - name: Cleanup - Logout from ACR
         if: always()
