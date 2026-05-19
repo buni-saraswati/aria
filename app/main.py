@@ -87,7 +87,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-setup_telemetry(app)
+# setup_telemetry(app)
 app.include_router(decisions.router)
 app.include_router(rules.router)
 
