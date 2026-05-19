@@ -95,3 +95,7 @@ app.include_router(rules.router)
 @app.get("/health")
 def health():
     return {"status": "ok", "service": Config.APP_TITLE, "version": Config.APP_VERSION}
+
+@app.get("/debug")
+def debug():
+    return {"cors": "enabled"}
