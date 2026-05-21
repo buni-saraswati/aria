@@ -1,87 +1,87 @@
-name: Build and Push to ACR
+# name: Build and Push to ACR
 
-on:
-  push:
-    branches:
-      - dev
-    paths:
-      - 'app/**'
-      - 'config.py'
-      - 'Dockerfile'
-      - 'requirements.txt'
-      - '.github/workflows/build-and-push.yml'
-  workflow_dispatch:  # Allow manual trigger
+# on:
+#   push:
+#     branches:
+#       - dev
+#     paths:
+#       - 'app/**'
+#       - 'config.py'
+#       - 'Dockerfile'
+#       - 'requirements.txt'
+#       - '.github/workflows/build-and-push.yml'
+#   workflow_dispatch:  # Allow manual trigger
 
-env:
-  REGISTRY: acrdocintdev001.azurecr.io
-  IMAGE_NAME: aria
+# env:
+#   REGISTRY: acrdocintdev001.azurecr.io
+#   IMAGE_NAME: aria
 
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    environment: aria
+# jobs:
+#   build-and-push:
+#     runs-on: ubuntu-latest
+#     environment: aria
     
-    permissions:
-      contents: read
-      id-token: write
+#     permissions:
+#       contents: read
+#       id-token: write
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+#       - name: Azure Login
+#         uses: azure/login@v1
+#         with:
+#           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR
-        run: |
-          az acr login --name acrdocintdev001
+#       - name: Login to ACR
+#         run: |
+#           az acr login --name acrdocintdev001
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push Docker image (with caching)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-          registry: ${{ env.REGISTRY }}
+#       - name: Build and Push Docker image (with caching)
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           push: true
+#           tags: |
+#             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+#             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+#           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+#           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+#           registry: ${{ env.REGISTRY }}
 
-      - name: Update Container App (optional)
-        if: github.ref == 'refs/heads/dev'
-        run: |
-          az containerapp update \
-            --name ca-aria-dev \
-            --resource-group rg-docint-dev \
-            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+#       - name: Update Container App (optional)
+#         if: github.ref == 'refs/heads/dev'
+#         run: |
+#           az containerapp update \
+#             --name ca-aria-dev \
+#             --resource-group rg-docint-dev \
+#             --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Echo deployment status
-        run: |
-          echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+#       - name: Echo deployment status
+#         run: |
+#           echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+#           echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
 
-      - name: Cleanup - Remove Docker images
-        if: always()
-        run: |
-          docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
-          docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} || true
-          az acr repository delete -n acrdocintdev001 -t aria:buildcache --yes || true
-          echo "✅ Docker images cleaned up"
+#       - name: Cleanup - Remove Docker images
+#         if: always()
+#         run: |
+#           docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
+#           docker rmi -f ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} || true
+#           az acr repository delete -n acrdocintdev001 -t aria:buildcache --yes || true
+#           echo "✅ Docker images cleaned up"
 
-      - name: Cleanup - Logout from ACR
-        if: always()
-        run: |
-          az acr logout --name acrdocintdev001 || true
-          echo "✅ Logged out from ACR"
+#       - name: Cleanup - Logout from ACR
+#         if: always()
+#         run: |
+#           az acr logout --name acrdocintdev001 || true
+#           echo "✅ Logged out from ACR"
 
-      - name: Cleanup - Azure logout
-        if: always()
-        run: |
-          az logout || true
-          echo "✅ Azure CLI logged out"
+#       - name: Cleanup - Azure logout
+#         if: always()
+#         run: |
+#           az logout || true
+#           echo "✅ Azure CLI logged out"
