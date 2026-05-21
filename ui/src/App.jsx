@@ -7,9 +7,9 @@ import {
 // ─── Environment config (set in .env) ────────────────────────
 const CONFIG = {
   url:         import.meta.env.VITE_API_URL      || "https://ca-aria-dev.purpleisland-b4cd0839.centralus.azurecontainerapps.io",
-  adminKey:    import.meta.env.VITE_ADMIN_KEY    || "",
-  approverKey: import.meta.env.VITE_APPROVER_KEY || "",
-  agentKey:    import.meta.env.VITE_AGENT_KEY    || "",
+  adminKey:    import.meta.env.VITE_ADMIN_KEY    || "IWOOhvGQ5giFzjfzhcF7CHm1Sx9g5OF5TNgvsHSqb0E",
+  approverKey: import.meta.env.VITE_APPROVER_KEY || "7GykGbcn0G12H4V_AuWpL8ZVC-_YD55N-45MGyMQ0G0",
+  agentKey:    import.meta.env.VITE_AGENT_KEY    || "l15_pTbIoFim45Z6LJjtwspDO0tO0rw8E298LcG4olA",
 };
 
 // ─── Hardcoded users (3 roles) ───────────────────────────────
