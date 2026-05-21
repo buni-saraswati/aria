@@ -72,22 +72,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],      
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://kind-mud-0a0530f10.7.azurestaticapps.net"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
     allow_headers=["*"],
 )
-# setup_telemetry(app)
+setup_telemetry(app)
 app.include_router(decisions.router)
 app.include_router(rules.router)
 
@@ -95,7 +87,3 @@ app.include_router(rules.router)
 @app.get("/health")
 def health():
     return {"status": "ok", "service": Config.APP_TITLE, "version": Config.APP_VERSION}
-
-@app.get("/debug")
-def debug():
-    return {"cors": "enabled"}
