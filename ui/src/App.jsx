@@ -6,7 +6,7 @@ import {
 
 // ─── Environment config (set in .env) ────────────────────────
 const CONFIG = {
-  url:         import.meta.env.VITE_API_URL      || "",
+  url:         import.meta.env.VITE_API_URL      || "https://ca-aria-dev.purpleisland-b4cd0839.centralus.azurecontainerapps.io",
   adminKey:    import.meta.env.VITE_ADMIN_KEY    || "",
   approverKey: import.meta.env.VITE_APPROVER_KEY || "",
   agentKey:    import.meta.env.VITE_AGENT_KEY    || "",
