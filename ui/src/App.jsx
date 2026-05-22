@@ -99,12 +99,34 @@ const EVENT_META = {
   pipeline_error:              {c:"#FF3B30",sym:"!",label:"Pipeline Error"},
 };
 const ACTION_LABEL = a => ({
-  wire_transfer:"Wire Transfer",bank_transfer:"Bank Transfer",
-  payment:"Payment",send_email:"Send Email",
-  send_reminder_email:"Send Reminder",modify_document:"Modify Document",
-  update_policy:"Update Policy",update_payment_status:"Update Payment Status",
-  generate_report:"Generate Report",delete_record:"Delete Record",
-  delete_data:"Delete Data",purge:"Purge Data",
+  // existing ones...
+  wire_transfer:         "Wire Transfer",
+  bank_transfer:         "Bank Transfer",
+  payment:               "Payment",
+  refund:                "Refund",
+  send_email:            "Send Email",
+  send_reminder_email:   "Send Reminder",
+  send_notification:     "Send Notification",
+  broadcast_message:     "Broadcast Message",
+  modify_document:       "Modify Document",
+  update_policy:         "Update Policy",
+  create_document:       "Create Document",
+  archive_document:      "Archive Document",
+  update_payment_status: "Update Payment Status",
+  update_payment_terms:  "Update Payment Terms",
+  generate_report:       "Generate Report",
+  export_data:           "Export Data",
+  run_audit:             "Run Audit",
+  update_record:         "Update Record",
+  create_record:         "Create Record",
+  delete_record:         "Delete Record",
+  delete_data:           "Delete Data",
+  purge:                 "Purge Data",
+  archive_record:        "Archive Record",
+  deploy_config:         "Deploy Config",
+  update_credentials:    "Update Credentials",
+  revoke_access:         "Revoke Access",
+  grant_access:          "Grant Access",
 }[a] || a?.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) || "—");
 
 const fmt = {
@@ -499,9 +521,47 @@ const SubmitModal = ({api,onClose,onDone}) => {
     setLoading(false);
   };
 
-  const ACTION_TYPES=["generate_report","send_email","send_reminder_email",
-    "modify_document","update_policy","update_payment_status",
-    "wire_transfer","bank_transfer","payment","delete_record","delete_data","purge"];
+  const ACTION_TYPES = [
+  // Reports & Read
+  "generate_report",
+  "export_data",
+  "run_audit",
+
+  // Communication
+  "send_email",
+  "send_reminder_email",
+  "send_notification",
+  "broadcast_message",
+
+  // Documents
+  "modify_document",
+  "update_policy",
+  "create_document",
+  "archive_document",
+
+  // Payments & Finance
+  "wire_transfer",
+  "bank_transfer",
+  "payment",
+  "refund",
+  "update_payment_status",
+  "update_payment_terms",
+
+  // Data Operations
+  "update_record",
+  "update_payment_status",
+  "create_record",
+  "delete_record",
+  "delete_data",
+  "purge",
+  "archive_record",
+
+  // System
+  "deploy_config",
+  "update_credentials",
+  "revoke_access",
+  "grant_access",
+];
 
   return(
     <Modal title="Submit Decision" sub="Submit an AI action for ARIA to evaluate" onClose={onClose}>

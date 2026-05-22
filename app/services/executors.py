@@ -180,6 +180,21 @@ EXECUTORS = {
     "update_policy":          execute_modify_document,
     "update_payment_status":  execute_update_payment_status,
     "generate_report":        execute_generate_report,
+    "refund":               execute_wire_transfer,
+    "update_payment_terms": execute_update_payment_status,
+    "send_notification":    execute_send_email,
+    "broadcast_message":    execute_send_email,
+    "create_document":      execute_modify_document,
+    "archive_document":     execute_modify_document,
+    "export_data":          execute_generate_report,
+    "run_audit":            execute_generate_report,
+    "update_record":        execute_update_payment_status,
+    "create_record":        execute_update_payment_status,
+    "archive_record":       execute_update_payment_status,
+    "deploy_config":        execute_modify_document,
+    "update_credentials":   execute_modify_document,
+    "revoke_access":        execute_modify_document,
+    "grant_access":         execute_modify_document,
 }
 
 
